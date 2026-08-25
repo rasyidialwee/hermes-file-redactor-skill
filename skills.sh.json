@@ -1,0 +1,10 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "name": "hermes-file-redactor",
+  "groupings": [
+    {
+      "name": "security",
+      "skills": ["document-sanitizer"]
+    }
+  ]
+}

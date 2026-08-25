@@ -1,0 +1,16 @@
+# Example custom rules for document sanitization
+# Use: sanitize.py PATH --custom-rules this-file
+
+custom_rules:
+  - name: customer_id
+    pattern: "CUS-[0-9]{6}"
+    replacement: "[CUSTOMER_ID]"
+
+  - name: project_code
+    pattern: "ZEE-[A-Z0-9-]+"
+    replacement: "[PROJECT_ID]"
+
+  # Names are not auto-detected — list known people/customers explicitly:
+  - name: person
+    pattern: "John Smith|Ahmad bin Ali|Siti Nurhaliza"
+    replacement: "[PERSON]"
