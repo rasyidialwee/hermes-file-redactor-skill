@@ -10,7 +10,8 @@ custom_rules:
     pattern: "ZEE-[A-Z0-9-]+"
     replacement: "[PROJECT_ID]"
 
-  # Names are not auto-detected — list known people/customers explicitly:
+  # Names with BIN/BINTI are redacted automatically in pii mode as [NAME_001].
+  # List exact names without those markers here:
   - name: person
-    pattern: "John Smith|Ahmad bin Ali|Siti Nurhaliza"
-    replacement: "[PERSON]"
+    pattern: "John Smith|Alice Tan"
+    replacement: "[NAME]"

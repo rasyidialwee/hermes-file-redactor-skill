@@ -108,7 +108,16 @@ Contact [EMAIL_001] or [PHONE_001]
 
 A skill **cannot** intercept Hermes tools at the LLM boundary. If the agent uses `read_file`, `cat`, `@file:`, or `vision_analyze` on a sensitive file, content can still leak.
 
-Names and street addresses are **not** auto-detected — use custom rules (`skills/document-sanitizer/templates/custom_rules.yaml`).
+Names with **BIN/BINTI** (and A/P, A/L) are redacted as `[NAME_001]` in `pii` mode. Other names need custom rules.
+
+Configure before a run:
+
+```bash
+python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --config skills/document-sanitizer/templates/sanitize.config.yaml
+python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --enable NAME,MYKAD
+python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --disable PHONE
+python skills/document-sanitizer/scripts/sanitize.py --list-categories
+```
 
 Archives (`.zip`/`.tar`/`.gz`) fail closed. Extract files first.
 

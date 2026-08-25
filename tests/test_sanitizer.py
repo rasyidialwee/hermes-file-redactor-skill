@@ -105,11 +105,39 @@ class TestPII:
         r = sanitize_text(f"card {bad}", mode="pii")
         assert bad in r.content
 
-    def test_names_not_auto_redacted(self):
-        prose = "Ahmad bin Ali met Siti Nurhaliza in Kuala Lumpur on 2024-01-15."
+    def test_names_without_bin_not_auto_redacted(self):
+        prose = "Alice Tan met Bob Lee in Kuala Lumpur on 2024-01-15."
         r = sanitize_text(prose, mode="pii")
-        assert "Ahmad bin Ali" in r.content
-        assert "Siti Nurhaliza" in r.content
+        assert "Alice Tan" in r.content
+        assert "Bob Lee" in r.content
+
+    def test_bin_name_redacted(self):
+        text = "this is my name MAS HAIRUL RASYIDI BIN ALWEE"
+        r = sanitize_text(text, mode="pii")
+        assert "MAS HAIRUL RASYIDI BIN ALWEE" not in r.content
+        assert "this is my name [NAME_001]" in r.content
+        assert "NAME" in r.categories
+
+    def test_binti_name_redacted(self):
+        text = "SITI NURHALIZA BINTI TARUDIN"
+        r = sanitize_text(text, mode="pii")
+        assert "SITI NURHALIZA BINTI TARUDIN" not in r.content
+        assert "[NAME_001]" in r.content
+
+    def test_disable_name_category(self):
+        cfg = SanitizerConfig(mode="pii", disable_categories=["NAME"])
+        text = "MAS HAIRUL RASYIDI BIN ALWEE and a@b.com"
+        r = sanitize_text(text, config=cfg)
+        assert "MAS HAIRUL RASYIDI BIN ALWEE" in r.content
+        assert "a@b.com" not in r.content
+
+    def test_enable_only_mykad(self):
+        cfg = SanitizerConfig(mode="pii", enable_categories=["MYKAD"])
+        text = "IC 900101-14-5678 name MAS HAIRUL RASYIDI BIN ALWEE mail a@b.com"
+        r = sanitize_text(text, config=cfg)
+        assert "900101-14-5678" not in r.content
+        assert "MAS HAIRUL RASYIDI BIN ALWEE" in r.content
+        assert "a@b.com" in r.content
 
 
 class TestConfidential:

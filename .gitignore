@@ -10,3 +10,4 @@ venv/
 .env
 *.tmp
 .DS_Store
+yourfile.txt

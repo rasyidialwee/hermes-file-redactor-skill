@@ -27,11 +27,47 @@ Do **not** put these settings under Hermes top-level `security:` or `privacy:` â
 |------|----------|
 | `off` | Pass-through (skill still preferred over raw reads for discipline) |
 | `secrets_only` | API keys, JWT, PEM, passwords, auth headers, DB URLs |
-| `pii` | + email, phone (E.164 + Malaysian), MyKad, IBAN, Luhn cards |
+| `pii` | + email, phone (E.164 + Malaysian), MyKad, IBAN, Luhn cards, **NAME (BIN/BINTI/A/P/A/L)** |
 | `confidential` | + `RM`/`MYR` amounts, account-like numbers |
 | `strict` | + internal URLs, long digit runs; never forward original image bytes |
 
 Default: `pii`.
+
+Western-style names without BIN/BINTI/A/P/A/L are **not** guessed â€” list them in `custom_rules`.
+
+## Choose what to sanitize
+
+### Config file
+
+```bash
+python scripts/sanitize.py yourfile.txt --config templates/sanitize.config.yaml
+```
+
+```yaml
+mode: pii
+enable_categories: []          # empty = all categories for the mode
+disable_categories:
+  - PHONE
+custom_rules:
+  - name: person
+    pattern: "John Smith"
+    replacement: "[NAME]"
+```
+
+### CLI flags
+
+```bash
+# Only MyKad + Malay names
+python scripts/sanitize.py yourfile.txt --enable NAME,MYKAD
+
+# Everything in pii mode except phones
+python scripts/sanitize.py yourfile.txt --mode pii --disable PHONE
+
+# List built-in categories
+python scripts/sanitize.py --list-categories
+```
+
+`custom_rules` always run, even when `enable_categories` is set.
 
 ## Confidence
 

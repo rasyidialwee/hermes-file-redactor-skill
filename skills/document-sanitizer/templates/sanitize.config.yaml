@@ -1,0 +1,36 @@
+# Document sanitizer config — edit this, then run:
+#   python scripts/sanitize.py yourfile.txt --config templates/sanitize.config.yaml
+#
+# Or enable/disable on the command line:
+#   python scripts/sanitize.py yourfile.txt --enable NAME,MYKAD
+#   python scripts/sanitize.py yourfile.txt --disable PHONE,AMOUNT
+
+mode: pii
+confidence_threshold: 0.85
+max_file_size_mb: 25
+
+# Leave enable_categories empty to use everything the mode includes.
+# If set, ONLY these built-in categories run (custom_rules still always run).
+enable_categories: []
+
+# Skip specific categories even when the mode would include them.
+disable_categories: []
+# Example:
+# disable_categories:
+#   - PHONE
+#   - AMOUNT
+
+# Always applied (even if not listed under enable_categories).
+custom_rules:
+  - name: customer_id
+    pattern: "CUS-[0-9]{6}"
+    replacement: "[CUSTOMER_ID]"
+
+  - name: project_code
+    pattern: "ZEE-[A-Z0-9-]+"
+    replacement: "[PROJECT_ID]"
+
+  # Exact names without BIN/BINTI — list them here:
+  # - name: person
+  #   pattern: "John Smith|Alice Tan"
+  #   replacement: "[NAME]"

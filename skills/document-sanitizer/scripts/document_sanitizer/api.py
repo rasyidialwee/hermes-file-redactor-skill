@@ -138,5 +138,7 @@ def _resolve_config(mode: str | None, config: SanitizerConfig | dict | None) -> 
             max_file_size_mb=cfg.max_file_size_mb,
             max_text_length=cfg.max_text_length,
             custom_rules=list(cfg.custom_rules),
+            enable_categories=list(cfg.enable_categories),
+            disable_categories=list(cfg.disable_categories),
         )
     return cfg

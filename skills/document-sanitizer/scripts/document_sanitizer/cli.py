@@ -8,7 +8,13 @@ import sys
 from pathlib import Path
 
 from .api import sanitize
-from .config import MODES, load_custom_rules, SanitizerConfig
+from .config import (
+    KNOWN_CATEGORIES,
+    MODES,
+    SanitizerConfig,
+    load_config_file,
+    load_custom_rules,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,23 +22,48 @@ def build_parser() -> argparse.ArgumentParser:
         prog="document-sanitize",
         description="Sanitize a local document for LLM use. Original file is never modified.",
     )
-    p.add_argument("path", type=Path, help="Path to the document")
+    p.add_argument("path", type=Path, nargs="?", help="Path to the document")
     p.add_argument(
         "--mode",
         choices=MODES,
-        default="pii",
-        help="Sanitization mode (default: pii)",
+        default=None,
+        help="Sanitization mode (default: pii, or value from --config)",
+    )
+    p.add_argument(
+        "--config",
+        type=Path,
+        help="YAML config file (mode, enable/disable categories, custom_rules)",
     )
     p.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.85,
+        default=None,
         help="Minimum detector confidence (default: 0.85)",
     )
     p.add_argument(
         "--custom-rules",
         type=Path,
-        help="YAML file with custom_rules list",
+        help="YAML file with custom_rules list (merged with --config rules)",
+    )
+    p.add_argument(
+        "--enable",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated categories to run ONLY "
+            f"(e.g. NAME,MYKAD,EMAIL). Known: {', '.join(sorted(KNOWN_CATEGORIES))}"
+        ),
+    )
+    p.add_argument(
+        "--disable",
+        type=str,
+        default=None,
+        help="Comma-separated categories to skip (e.g. PHONE,AMOUNT)",
+    )
+    p.add_argument(
+        "--list-categories",
+        action="store_true",
+        help="Print known detector categories and exit",
     )
     p.add_argument(
         "--json",
@@ -47,14 +78,51 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _split_cats(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [p.strip().upper() for p in raw.split(",") if p.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    custom = load_custom_rules(args.custom_rules) if args.custom_rules else []
+
+    if args.list_categories:
+        print("Known categories:")
+        for cat in sorted(KNOWN_CATEGORIES):
+            print(f"  {cat}")
+        return 0
+
+    if args.path is None:
+        build_parser().error("path is required (unless --list-categories)")
+
+    config = load_config_file(args.config) if args.config else SanitizerConfig()
+
+    if args.mode is not None:
+        config.mode = args.mode
+    if args.confidence_threshold is not None:
+        config.confidence_threshold = args.confidence_threshold
+    if args.enable is not None:
+        config.enable_categories = _split_cats(args.enable)
+    if args.disable is not None:
+        # merge with any disables from config file
+        config.disable_categories = list(
+            dict.fromkeys(config.disable_categories + _split_cats(args.disable))
+        )
+    if args.custom_rules:
+        config.custom_rules = list(config.custom_rules) + load_custom_rules(args.custom_rules)
+
+    # Re-validate after mutations
     config = SanitizerConfig(
-        mode=args.mode,
-        confidence_threshold=args.confidence_threshold,
-        custom_rules=custom,
+        mode=config.mode,
+        confidence_threshold=config.confidence_threshold,
+        max_file_size_mb=config.max_file_size_mb,
+        max_text_length=config.max_text_length,
+        custom_rules=list(config.custom_rules),
+        enable_categories=list(config.enable_categories),
+        disable_categories=list(config.disable_categories),
     )
+
     result = sanitize(args.path, config=config)
 
     if args.show_original:

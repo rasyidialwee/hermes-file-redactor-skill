@@ -144,6 +144,27 @@ PII_RULES: list[PatternRule] = [
         ),
         0.90,
     ),
+    # Malay / Malaysian-style names with filiation markers.
+    # Each name token must start with an uppercase letter (Title Case or ALL CAPS)
+    # so prose like "this is my name …" is not swallowed.
+    PatternRule(
+        "NAME",
+        re.compile(
+            r"\b(?:[A-Z][A-Za-z'`.-]*)(?:\s+[A-Z][A-Za-z'`.-]*){0,6}"
+            r"\s+(?:BIN|BINTI|Bin|Binti|bin|binti|BT\.?|BTE\.?|Bt\.?|Bte\.?)\s+"
+            r"(?:[A-Z][A-Za-z'`.-]*)(?:\s+[A-Z][A-Za-z'`.-]*){0,4}\b"
+        ),
+        0.93,
+    ),
+    PatternRule(
+        "NAME",
+        re.compile(
+            r"\b(?:[A-Z][A-Za-z'`.-]*)(?:\s+[A-Z][A-Za-z'`.-]*){0,4}"
+            r"\s+A/[LPlp]\s+"
+            r"(?:[A-Z][A-Za-z'`.-]*)(?:\s+[A-Z][A-Za-z'`.-]*){0,4}\b"
+        ),
+        0.92,
+    ),
 ]
 
 CONFIDENTIAL_RULES: list[PatternRule] = [
@@ -173,7 +194,7 @@ STRICT_RULES: list[PatternRule] = [
 ]
 
 
-def _mode_rules(mode: str) -> list[PatternRule]:
+def _mode_rules(mode: str, config: SanitizerConfig | None = None) -> list[PatternRule]:
     if mode == "off":
         return []
     rules = list(SECRET_RULES)
@@ -183,7 +204,9 @@ def _mode_rules(mode: str) -> list[PatternRule]:
         rules.extend(CONFIDENTIAL_RULES)
     if mode == "strict":
         rules.extend(STRICT_RULES)
-    return rules
+    if config is None:
+        return rules
+    return [r for r in rules if config.category_allowed(r.category)]
 
 
 def _password_span(match: re.Match[str]) -> tuple[int, int, str]:
@@ -295,10 +318,10 @@ def redact_text(
     session = session or PlaceholderSession()
     threshold = config.confidence_threshold
 
-    # Precedence: custom rules first (collected together), then mode detectors.
-    # Overlap resolution prefers longer matches.
+    # Precedence: custom rules first (always applied), then mode detectors
+    # filtered by enable/disable category lists. Overlaps: longer match wins.
     hits = _collect_custom_hits(text, config.custom_rules, threshold)
-    hits.extend(_collect_pattern_hits(text, _mode_rules(config.mode), threshold))
+    hits.extend(_collect_pattern_hits(text, _mode_rules(config.mode, config), threshold))
     resolved = _resolve_overlaps(hits)
 
     detections: list[Detection] = []

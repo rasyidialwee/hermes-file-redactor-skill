@@ -85,7 +85,7 @@ document-sanitize /path/to/file --mode pii
 | `confidential` | + RM/MYR amounts, account-like numbers |
 | `strict` | + internal URLs, long numbers; hard image-byte block |
 
-Names and street addresses are **not** auto-detected. Add them via custom rules (see `templates/custom_rules.yaml`).
+Names with BIN/BINTI/A/P/A/L are redacted in `pii` mode as `[NAME_001]`. Other names need custom rules (see `templates/custom_rules.yaml`). Use `--config`, `--enable`, or `--disable` to choose categories before a run.
 
 ## Pitfalls
 
@@ -109,3 +109,4 @@ Engine modules (Hub must copy with the skill):
 - `references/threat-model.md`
 - `references/configuration.md`
 - `templates/custom_rules.yaml`
+- `templates/sanitize.config.yaml`
