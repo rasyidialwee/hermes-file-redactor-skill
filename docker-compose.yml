@@ -1,0 +1,34 @@
+# Local-only document sanitizer for Hermes.
+#
+# Why Docker asks to share your home directory:
+#   Hermes sends absolute host paths (e.g. /Users/you/invoice.pdf).
+#   The container must see the same path to run PDF/DOCX/OCR adapters.
+#   Mount is read-only. Approve it for Hermes; the preview UI can also upload
+#   without relying on that path.
+#
+# Usage:
+#   docker compose up -d --build
+#   open http://127.0.0.1:8765/          # local upload preview
+#   curl -s http://127.0.0.1:8765/health
+
+services:
+  document-sanitizer:
+    build: .
+    image: hermes-document-sanitizer:local
+    container_name: hermes-document-sanitizer
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      DOCUMENT_SANITIZER_DOCKER: "1"
+      PORT: "8765"
+    volumes:
+      # Required for Hermes path-based sanitize (PDF/DOCX/images).
+      - ${HOME}:${HOME}:ro
+      - /tmp:/tmp:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s

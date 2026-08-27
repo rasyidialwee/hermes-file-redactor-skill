@@ -7,7 +7,9 @@ build/
 .pytest_cache/
 .venv/
 venv/
+.deps/
 .env
 *.tmp
 .DS_Store
 yourfile.txt
+docker-compose.override.yml

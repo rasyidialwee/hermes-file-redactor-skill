@@ -2,60 +2,67 @@
 
 ## Goal
 
-Prevent sensitive content from local documents from entering LLM context when the agent follows this skill.
+Prevent sensitive content from local documents/images from entering LLM context.
 
 ```text
 Original document
       ↓
-Document extraction (read-only)
+Local sanitizer (CLI skill · or Docker service on 127.0.0.1:8765)
       ↓
-Sensitive-data detection (local regex / structure)
+Typed placeholders [EMAIL_001] …  (one-way; session cleared)
       ↓
-Sanitization (typed placeholders)
-      ↓
-LLM context  ← only sanitized text should arrive via this skill
+LLM context
 ```
 
-## Protected (when the agent follows the skill)
+## Enforcement modes
 
-- Sanitizer stdout for supported formats
+| Mode | Protection |
+|------|------------|
+| **Skill only** (cooperative) | Safe only if the agent runs `sanitize.py` and does not bypass |
+| **Docker service + Hermes plugin** | `read_file` / `vision_analyze` (configured tools) rewritten in-path via `transform_tool_result`; fail-closed if service down |
+
+## Protected
+
+- Sanitizer stdout / service JSON for supported formats
 - Original files never modified
-- Placeholder ↔ original mappings never returned in results or default logs
+- Placeholder ↔ original mappings never returned (API, logs, plugin)
 - Fail-closed on unsupported formats, archives, oversized files, missing OCR
-- Secrets + configured PII detectors as implemented
+- Docker: host publish bound to `127.0.0.1` only; container may listen on `0.0.0.0` internally
+- Write-only `/v1/stats` (counts/categories only)
 
-## Not protected (skill limitation)
+## Not protected (remaining gaps)
 
 | Bypass | Why |
 |--------|-----|
-| `read_file` / `search_files` | Hermes tools return content without this sanitizer |
-| `terminal` (`cat`, `type`, `grep`) | Only Hermes secret redaction applies |
-| `execute_code` `open(...)` | Arbitrary reads → stdout |
-| `@file:` user message expansion | Inlines raw text; may skip even secret redaction |
-| `vision_analyze` / image attachments | Raw pixels reach multimodal models |
-| Tool-result spill re-read | Large outputs may be re-opened from disk |
-| Agent ignoring the skill | Cooperative control only |
-| Names / street addresses | Not auto-detected in v1 |
+| `@file:` user message expansion | Hermes inlines raw text before tools/plugin |
+| `execute_code` `open(...)` | Arbitrary reads unless tool is listed + text-sanitized |
+| Agent ignoring skill (no plugin) | Cooperative control only |
+| Names / street addresses (non BIN/BINTI) | Weak regex coverage |
 | OCR mistakes | Missed text in images/PDFs |
-| Archives | Not supported; must extract manually |
+| Archives | Fail closed; extract first |
+| Compromised host / Docker escape | Out of scope |
+
+With plugin **enabled** and service **up**, these skill-era bypasses are closed for listed tools:
+
+- `read_file` / `search_files` (when listed)
+- `vision_analyze` (blocked or OCR+sanitize via path)
 
 ## Secret redaction vs document sanitization
 
-| | Hermes `agent/redact.py` | This skill |
-|--|--------------------------|------------|
-| Layer | Core tool/log output | Pre-read document workflow |
-| Default | On (`security.redact_secrets`) | Opt-in via skill use |
+| | Hermes `agent/redact.py` | This project |
+|--|--------------------------|--------------|
+| Layer | Core tool/log output | Document/image pre-context |
 | Focus | Credentials / tokens | Documents + PII + custom rules |
-| Enforcement | Automatic | Agent must run `sanitize.py` |
+| Enforcement | Automatic | Skill (opt-in) and/or plugin (enforce) |
 
-This skill does **not** disable or weaken Hermes secret redaction.
+This project does **not** disable or weaken Hermes secret redaction.
 
-## Future harder enforcement
+## Logging / audit policy
 
-A Hermes core hook in `agent/tool_executor.py` (before `make_tool_result_message`) plus `@file` / vision gating would be required for enforced DLP. Out of scope for this skill repo.
+Allowed: `file=… mode=… detections=N categories=EMAIL,PHONE` and `/v1/stats` aggregates.
 
-## Logging policy
+Forbidden: original values, mappings, reverse-lookup HTTP APIs.
 
-Allowed: `file=… mode=… detections=N categories=EMAIL,PHONE`
+## Improve loop
 
-Forbidden: original values, mappings, sample PII in log lines.
+`document-sanitize improve` runs fixtures and reports **leaks** / **false positives**. Coverage is a test result, not a marketing claim.

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Document Sanitizer — local preview</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --border: #2c3846;
+      --text: #e7ecf1;
+      --muted: #8b9aab;
+      --accent: #3d9a78;
+      --warn: #c4a35a;
+      --danger: #c45c5c;
+      --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      --sans: "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2a28 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    h1 { font-size: 1.5rem; font-weight: 650; margin: 0 0 0.35rem; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.95rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      border: 1px solid #2f5f4e;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem;
+      margin-bottom: 1rem;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 0.85rem; align-items: end; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input[type="file"], select {
+      width: 100%;
+      background: #12181f;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.55rem 0.65rem;
+      font: inherit;
+    }
+    .field { flex: 1 1 200px; }
+    button {
+      background: var(--accent);
+      color: #04140f;
+      border: 0;
+      border-radius: 6px;
+      padding: 0.65rem 1.1rem;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .meta strong { color: var(--text); font-weight: 600; }
+    .warn { color: var(--warn); }
+    .err { color: var(--danger); white-space: pre-wrap; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    .pane h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+      font-weight: 600;
+    }
+    pre {
+      margin: 0;
+      padding: 0.9rem;
+      background: #12181f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: 55vh;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.75rem; }
+    .mode-note {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      background: #12181f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+    .mode-note strong { color: var(--accent); font-weight: 650; }
+    .mode-list {
+      margin: 0.65rem 0 0;
+      padding: 0;
+      list-style: none;
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: grid;
+      gap: 0.25rem;
+    }
+    .mode-list li code {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.76rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="badge">127.0.0.1 only · one-way · no mappings</div>
+    <h1>Document Sanitizer</h1>
+    <p class="sub">Upload a file, pick a mode, preview what would reach the model.</p>
+
+    <form class="card" id="form">
+      <div class="row">
+        <div class="field">
+          <label for="file">File</label>
+          <input id="file" name="file" type="file" required />
+        </div>
+        <div class="field" style="flex: 0 1 180px">
+          <label for="mode">Mode</label>
+          <select id="mode" name="mode">
+            <option value="secrets_only">secrets_only</option>
+            <option value="pii" selected>pii</option>
+            <option value="confidential">confidential</option>
+            <option value="strict">strict</option>
+            <option value="off">off</option>
+          </select>
+        </div>
+        <div class="field" style="flex: 0 0 auto">
+          <label>&nbsp;</label>
+          <button type="submit" id="go">Sanitize</button>
+        </div>
+      </div>
+      <div class="mode-note" id="mode-note" aria-live="polite"></div>
+      <ul class="mode-list">
+        <li><code>secrets_only</code> — API keys, JWT, PEM, passwords, auth headers, DB URLs</li>
+        <li><code>pii</code> — secrets + email, phone, MyKad, IBAN, cards, BIN/BINTI names</li>
+        <li><code>confidential</code> — pii + RM/MYR amounts, account-like numbers</li>
+        <li><code>strict</code> — confidential + internal URLs, long numbers; hard image-byte block</li>
+        <li><code>off</code> — no sanitization (pass-through; for comparison only)</li>
+      </ul>
+      <p class="hint">Supported: txt, md, json, yaml, csv, xml, docx, xlsx, pdf, png/jpg/webp (OCR). Archives fail closed.</p>
+    </form>
+    <div class="card" id="status" hidden>
+      <div class="meta" id="meta"></div>
+      <div class="err" id="error" hidden></div>
+      <div class="grid">
+        <div class="pane">
+          <h2>Original (browser only)</h2>
+          <pre id="original">—</pre>
+        </div>
+        <div class="pane">
+          <h2>Sanitized (what the model would see)</h2>
+          <pre id="sanitized">—</pre>
+        </div>
+      </div>
+      <p class="hint">Original preview is read in your browser and never returned by the API. Placeholders are one-way.</p>
+    </div>
+  </main>
+  <script>
+    const form = document.getElementById("form");
+    const go = document.getElementById("go");
+    const status = document.getElementById("status");
+    const meta = document.getElementById("meta");
+    const error = document.getElementById("error");
+    const originalEl = document.getElementById("original");
+    const sanitizedEl = document.getElementById("sanitized");
+    const modeSelect = document.getElementById("mode");
+    const modeNote = document.getElementById("mode-note");
+
+    const MODE_NOTES = {
+      secrets_only:
+        "Redacts credentials only: API keys, JWTs, private keys, password fields, Authorization headers, DB connection URLs. Leaves emails/phones alone.",
+      pii:
+        "Default. Secrets plus personal data: email, phone (incl. MY), MyKad, IBAN, credit cards, and Malay-style names with BIN/BINTI (or A/P, A/L).",
+      confidential:
+        "Everything in pii, plus business-sensitive values: RM/MYR amounts and account-like numbers.",
+      strict:
+        "Everything in confidential, plus internal URLs and long digit runs. Also blocks sending original image bytes to the model.",
+      off:
+        "No redaction — returns the extracted text as-is. Use only to compare; do not use before sending to a provider.",
+    };
+
+    function refreshModeNote() {
+      const key = modeSelect.value;
+      const text = MODE_NOTES[key] || "";
+      modeNote.innerHTML = `<strong>${key}</strong> — ${text}`;
+    }
+    modeSelect.addEventListener("change", refreshModeNote);
+    refreshModeNote();
+
+    const TEXTISH = new Set([
+      ".txt", ".md", ".log", ".csv", ".json", ".yaml", ".yml", ".xml",
+    ]);
+
+    function extOf(name) {
+      const i = name.lastIndexOf(".");
+      return i >= 0 ? name.slice(i).toLowerCase() : "";
+    }
+
+    async function previewOriginal(file) {
+      const ext = extOf(file.name);
+      if (!TEXTISH.has(ext) || file.size > 2_000_000) {
+        return `(binary / non-text preview)\nname: ${file.name}\nsize: ${file.size} bytes`;
+      }
+      return await file.text();
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById("file");
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      go.disabled = true;
+      status.hidden = false;
+      error.hidden = true;
+      error.textContent = "";
+      sanitizedEl.textContent = "Working…";
+      meta.innerHTML = "";
+
+      try {
+        originalEl.textContent = await previewOriginal(file);
+
+        const body = new FormData();
+        body.append("file", file);
+        body.append("mode", modeSelect.value);
+
+        const res = await fetch("/v1/sanitize/upload", { method: "POST", body });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || data.error || res.statusText || "request failed");
+        }
+
+        const cats = (data.categories || []).join(", ") || "none";
+        const warns = (data.warnings || []).map((w) => `<span class="warn">⚠ ${w}</span>`).join(" ");
+        meta.innerHTML = [
+          `<span>file <strong>${data.file_name || file.name}</strong></span>`,
+          `<span>mode <strong>${data.mode}</strong></span>`,
+          `<span>sanitized <strong>${data.sanitized}</strong></span>`,
+          `<span>detections <strong>${data.detection_count ?? 0}</strong></span>`,
+          `<span>categories <strong>${cats}</strong></span>`,
+          warns,
+        ].filter(Boolean).join("");
+
+        sanitizedEl.textContent = data.content || "(empty)";
+      } catch (err) {
+        error.hidden = false;
+        error.textContent = String(err.message || err);
+        sanitizedEl.textContent = "—";
+      } finally {
+        go.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

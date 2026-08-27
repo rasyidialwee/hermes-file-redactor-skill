@@ -1,46 +1,63 @@
 # Hermes Document Sanitizer
 
-A **Hermes Agent skill** that sanitizes local documents before their contents reach an LLM. It removes or anonymizes sensitive information (secrets, PII, confidential business data) while preserving useful structure.
+Sanitize local documents/images before their contents reach an LLM. Complements Hermes `security.redact_secrets`; does **not** replace it.
 
-This complements Hermes’s built-in secret redactor (`security.redact_secrets`). It does **not** replace it.
+**Two layers:**
+
+| Layer | Role |
+|-------|------|
+| **Skill** (cooperative) | Agent runs `sanitize.py` when asked |
+| **Docker service + Hermes plugin** (enforced) | Rewrites `read_file` / `vision_analyze` results via `http://127.0.0.1:8765` |
+
+One-way placeholders only (`[EMAIL_001]`…). No reverse vault.
+
+---
+
+## Quick start (enforced path)
+
+```bash
+# 1. Local sanitizer container (loopback only)
+docker compose up -d --build
+curl -s http://127.0.0.1:8765/health
+
+# 2. Install Hermes plugin
+mkdir -p ~/.hermes/plugins
+cp -R plugins/document-sanitizer ~/.hermes/plugins/document-sanitizer
+```
+
+Enable in `~/.hermes/config.yaml` — see [plugin-setup.md](skills/document-sanitizer/references/plugin-setup.md).
 
 ---
 
 ## What this does
 
-| Layer | Hermes core (`agent/redact.py`) | This skill |
-|-------|----------------------------------|------------|
+| Layer | Hermes core (`agent/redact.py`) | This project |
+|-------|----------------------------------|--------------|
 | Scope | API keys, JWTs, passwords, tokens | Documents: emails, phones, MyKad, IBAN, cards, RM amounts, custom patterns |
-| When | Automatic on tool output | Agent runs the sanitizer **before** sharing file content |
+| When | Automatic on tool/log output | Skill (cooperative) **or** plugin (in-path) |
 | Formats | Any text | `.txt`, `.md`, `.json`, `.yaml`, `.csv`, `.xml`, `.docx`, `.xlsx`, `.pdf`, images (OCR) |
-| Enforcement | Core hook | Cooperative — agent must follow the skill |
 
 **Modes:** `off` · `secrets_only` · `pii` (default) · `confidential` · `strict`
 
-Replacements use typed placeholders (`[EMAIL_001]`, `[MYKAD_001]`, …) with stable IDs within one run. Original files are never modified.
+Original files are never modified.
 
 ---
 
 ## Install (Hermes Skills Hub)
 
 ```bash
-# Add this repo as a tap (replace with your GitHub user/org)
 hermes skills tap add <your-github-user>/hermes-file-redactor
-
-# Install the skill
 hermes skills install <your-github-user>/hermes-file-redactor/document-sanitizer
-
-# New session so Hermes reloads skills
 hermes chat
 ```
-
-In chat:
 
 ```text
 /document-sanitizer
 ```
 
 Or: *“Use the document-sanitizer skill on invoice.pdf”*
+
+When the **plugin is active**, `read_file` / `vision_analyze` are auto-sanitized; the skill remains useful for explicit runs and CLI.
 
 ### Configure (optional)
 
@@ -54,10 +71,6 @@ skills:
       max_file_size_mb: 25
 ```
 
-```bash
-hermes config set skills.config.document_sanitization.mode pii
-```
-
 ---
 
 ## Install (standalone CLI)
@@ -65,63 +78,39 @@ hermes config set skills.config.document_sanitization.mode pii
 ```bash
 cd hermes-file-redactor
 pip install .
-
-# Optional extras
-pip install ".[pdf]"    # PDF extraction
-pip install ".[ocr]"    # image OCR (also needs system Tesseract)
-pip install ".[dev]"    # pytest + extras
+pip install ".[pdf]"     # PDF
+pip install ".[ocr]"     # image OCR (+ system Tesseract)
+pip install ".[server]"  # local serve without Docker
+pip install ".[dev]"     # pytest + server extras
 
 document-sanitize path/to/invoice.txt --mode pii
-```
-
-Without installing, from the skill scripts directory:
-
-```bash
-python skills/document-sanitizer/scripts/sanitize.py path/to/file.txt --mode pii
+document-sanitize improve --cycles 1
 ```
 
 ---
 
-## Quick example
+## Docker service API
 
-```bash
-echo "Contact jane@example.com or +60123456789" > sample.txt
-document-sanitize sample.txt --mode pii
-```
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /` | Local upload + preview UI |
+| `GET /health` | Liveness |
+| `POST /v1/sanitize` | `{ "path": "/abs/path", "mode": "pii" }` (Hermes; needs `$HOME` mount) |
+| `POST /v1/sanitize/text` | `{ "text": "...", "mode": "pii" }` |
+| `POST /v1/sanitize/upload` | Multipart file upload (preview UI) |
+| `GET /v1/stats` | Request counts + category tallies (no reverse lookup) |
 
-Expected shape:
-
-```text
-Document: sample.txt
-Mode: pii
-Detections: 2
-Categories: EMAIL, PHONE
-
-Sanitized content:
-
-Contact [EMAIL_001] or [PHONE_001]
-```
+`$HOME` and `/tmp` are mounted read-only so Hermes absolute paths work. Docker Desktop will prompt to share your home — **approve for Hermes**. Preview UI works via upload either way.
 
 ---
 
 ## Limitations
 
-A skill **cannot** intercept Hermes tools at the LLM boundary. If the agent uses `read_file`, `cat`, `@file:`, or `vision_analyze` on a sensitive file, content can still leak.
+Without the plugin: a skill **cannot** intercept Hermes tools — `read_file` / `@file:` / vision can still leak.
 
-Names with **BIN/BINTI** (and A/P, A/L) are redacted as `[NAME_001]` in `pii` mode. Other names need custom rules.
+With the plugin: `@file:` expansion and arbitrary `execute_code` reads remain open (Hermes core gaps).
 
-Configure before a run:
-
-```bash
-python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --config skills/document-sanitizer/templates/sanitize.config.yaml
-python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --enable NAME,MYKAD
-python skills/document-sanitizer/scripts/sanitize.py yourfile.txt --disable PHONE
-python skills/document-sanitizer/scripts/sanitize.py --list-categories
-```
-
-Archives (`.zip`/`.tar`/`.gz`) fail closed. Extract files first.
-
-See [skills/document-sanitizer/references/threat-model.md](skills/document-sanitizer/references/threat-model.md).
+See [threat-model.md](skills/document-sanitizer/references/threat-model.md) and [plugin-setup.md](skills/document-sanitizer/references/plugin-setup.md).
 
 ---
 
@@ -130,17 +119,13 @@ See [skills/document-sanitizer/references/threat-model.md](skills/document-sanit
 ```bash
 pip install -e ".[dev]"
 pytest -q
+document-sanitize improve --cycles 1
 ```
 
-Layout:
-
 ```text
-skills/document-sanitizer/
-  SKILL.md
-  scripts/sanitize.py
-  scripts/document_sanitizer/   # library + CLI
-  references/
-  templates/
+skills/document-sanitizer/   # skill + library + HTTP server
+plugins/document-sanitizer/  # Hermes enforcement plugin
+Dockerfile / docker-compose.yml
 tests/
 ```
 

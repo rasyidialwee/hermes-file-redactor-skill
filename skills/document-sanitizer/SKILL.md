@@ -28,7 +28,7 @@ metadata:
 
 Sanitize local files before their contents reach the model. Complements Hermes `security.redact_secrets`. Does not replace it. Original files are never modified.
 
-**This skill is cooperative.** It cannot intercept `read_file`, `terminal`, `execute_code`, `@file:`, or vision. Follow the procedure below or unsanitized content can leak.
+**This skill is cooperative** for explicit sanitize runs. For enforced DLP on `read_file` / `vision_analyze`, run the **Docker sanitizer** and install the Hermes plugin — see `references/plugin-setup.md`. When the plugin is active, those tools are auto-sanitized; still follow this procedure for explicit requests and formats the plugin does not cover.
 
 ## When to Use
 
@@ -36,7 +36,7 @@ Sanitize local files before their contents reach the model. Complements Hermes `
 - Task involves invoices, contracts, HR files, customer exports, ID scans, or logs with PII
 - Mode is `pii` / `confidential` / `strict` and a local file must enter context
 
-Don't use for: encrypting secrets for later recovery; replacing Hermes core secret redaction; claiming full DLP without sandboxing.
+Don't use for: encrypting secrets for later recovery; replacing Hermes core secret redaction; claiming full DLP without the plugin + Docker service.
 
 ## Prerequisites
 
@@ -44,8 +44,9 @@ Don't use for: encrypting secrets for later recovery; replacing Hermes core secr
 - Skill scripts at `${HERMES_SKILL_DIR}/scripts/`
 - Optional PDF: `pip install pypdf`
 - Optional OCR: install Tesseract + `pip install Pillow pytesseract`
+- Enforced path: `docker compose up -d` from the repo + plugin from `plugins/document-sanitizer/`
 
-For configuration details see `references/configuration.md`. For bypasses see `references/threat-model.md`.
+For configuration details see `references/configuration.md`. For bypasses see `references/threat-model.md`. For Docker + plugin see `references/plugin-setup.md`.
 
 ## How to Run
 
@@ -105,8 +106,9 @@ Names with BIN/BINTI/A/P/A/L are redacted in `pii` mode as `[NAME_001]`. Other n
 Engine modules (Hub must copy with the skill):
 
 - `scripts/sanitize.py`
-- `scripts/document_sanitizer/` (api, adapters, detectors, config, models, session, cli, logging_util)
+- `scripts/document_sanitizer/` (api, adapters, detectors, config, models, session, cli, logging_util, server, improve)
 - `references/threat-model.md`
 - `references/configuration.md`
+- `references/plugin-setup.md`
 - `templates/custom_rules.yaml`
 - `templates/sanitize.config.yaml`

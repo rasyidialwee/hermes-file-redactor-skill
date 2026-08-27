@@ -17,8 +17,24 @@ dependencies = [
 [project.optional-dependencies]
 pdf = ["pypdf>=4.0"]
 ocr = ["Pillow>=10.0", "pytesseract>=0.3.10"]
-all = ["pypdf>=4.0", "Pillow>=10.0", "pytesseract>=0.3.10"]
-dev = ["pytest>=8.0", "pypdf>=4.0", "Pillow>=10.0"]
+server = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "python-multipart>=0.0.9"]
+all = [
+    "pypdf>=4.0",
+    "Pillow>=10.0",
+    "pytesseract>=0.3.10",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+]
+dev = [
+    "pytest>=8.0",
+    "pypdf>=4.0",
+    "Pillow>=10.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+]
 
 [project.scripts]
 document-sanitize = "document_sanitizer.cli:main"
@@ -27,6 +43,9 @@ document-sanitize = "document_sanitizer.cli:main"
 where = ["skills/document-sanitizer/scripts"]
 include = ["document_sanitizer*"]
 
+[tool.setuptools.package-data]
+document_sanitizer = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["skills/document-sanitizer/scripts"]
+pythonpath = ["skills/document-sanitizer/scripts", "tests"]

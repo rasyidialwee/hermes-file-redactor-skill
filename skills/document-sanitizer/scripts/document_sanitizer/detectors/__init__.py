@@ -193,6 +193,31 @@ STRICT_RULES: list[PatternRule] = [
     ),
 ]
 
+# Structural / format labels that must never become placeholders.
+_NEVER_REDACT: frozenset[str] = frozenset(
+    {
+        "invoice",
+        "gst",
+        "total",
+        "customer",
+        "email",
+        "phone",
+        "mykad",
+        "iban",
+        "card",
+        "ref",
+        "amount",
+        "account",
+        "password",
+        "contact",
+        "openai_api_key",
+    }
+)
+
+
+def _is_never_redact(value: str) -> bool:
+    return value.strip().lower() in _NEVER_REDACT
+
 
 def _mode_rules(mode: str, config: SanitizerConfig | None = None) -> list[PatternRule]:
     if mode == "off":
@@ -255,12 +280,15 @@ def _collect_custom_hits(text: str, rules: Iterable[CustomRule], threshold: floa
         except re.error:
             continue
         for m in pattern.finditer(text):
+            value = m.group(0)
+            if _is_never_redact(value):
+                continue
             hits.append(
                 _Hit(
                     start=m.start(),
                     end=m.end(),
                     category=rule.name.upper().replace(" ", "_"),
-                    value=m.group(0),
+                    value=value,
                     confidence=rule.confidence,
                     fixed_replacement=rule.replacement,
                 )
@@ -280,6 +308,8 @@ def _collect_pattern_hits(text: str, rules: Iterable[PatternRule], threshold: fl
             else:
                 start, end, value = m.start(), m.end(), m.group(0)
             if rule.validator and not rule.validator(value):
+                continue
+            if _is_never_redact(value):
                 continue
             hits.append(
                 _Hit(

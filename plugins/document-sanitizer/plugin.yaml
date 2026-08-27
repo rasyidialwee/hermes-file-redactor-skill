@@ -1,0 +1,4 @@
+name: document-sanitizer
+version: 0.1.0
+description: Enforce one-way document sanitization via local Docker/HTTP service before tool results reach the model.
+author: rasyidialwee

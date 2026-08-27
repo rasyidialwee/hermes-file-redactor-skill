@@ -1,0 +1,7 @@
+# Optional overrides (copy to docker-compose.override.yml — gitignored).
+# Example: mount an extra project root for path-based sanitize.
+#
+# services:
+#   document-sanitizer:
+#     volumes:
+#       - /Users/you/Documents:/Users/you/Documents:ro
